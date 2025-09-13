@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Base-60 (12×5) Wheel — Vue</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="preconnect" href="https://unpkg.com" />
+
+<style>
+  :root{
+    --bg:#0e0f12;
+    --panel:#14161b;
+    --ink:#e8ecf1;
+    --muted:#aab6c6;
+    --accent:#7dd3fc;    /* inner active */
+    --accent2:#c084fc;   /* outer active */
+    --ring:#2a2f3a;
+    --grid:#1c212b;
+    --ok:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    background: radial-gradient(1200px 800px at 70% -10%, #1a1f28 10%, var(--bg) 60%);
+    color:var(--ink);
+  }
+  .wrap{
+    max-width:1100px; margin:32px auto; padding:16px;
+  }
+  .head{
+    display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; margin-bottom:16px;
+  }
+  .card{
+    background:linear-gradient(180deg, var(--panel), #101218);
+    border:1px solid #1f2430; border-radius:16px; padding:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .controls{
+    display:grid; grid-template-columns: 1fr auto auto auto; gap:12px; align-items:center;
+  }
+  .btn{
+    background:#1c2330; border:1px solid #2b3342; color:var(--ink);
+    padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+    transition:transform .04s ease, background .2s ease, border .2s ease;
+  }
+  .btn:hover{ background:#232b3a }
+  .btn:active{ transform: translateY(1px) }
+  .btn.playing{ border-color: var(--ok); box-shadow: 0 0 0 2px rgba(34,197,94,.15) inset }
+  .toggle{
+    display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)
+  }
+  input[type="checkbox"]{ width:18px; height:18px; accent-color: var(--accent) }
+
+  .readouts{
+    display:grid; gap:8px; grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+  .kv{
+    background:#0f1218; border:1px solid #1f2430; border-radius:12px; padding:12px 14px;
+  }
+  .kv .k{color:var(--muted); font-size:13px; letter-spacing:.3px; text-transform:uppercase}
+  .kv .v{font-size:22px; font-weight:700; margin-top:2px}
+
+  /* SVG board */
+  .board{
+    margin-top:16px; display:grid; grid-template-columns: 1.2fr .8fr; gap:16px;
+  }
+  .legend{
+    display:grid; gap:10px;
+  }
+  .legend .row{
+    display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted)
+  }
+  .swatch{ width:14px; height:14px; border-radius:3px; background:var(--ring); border:1px solid #2b3342 }
+  .swatch.inner{ background:var(--accent); box-shadow:0 0 12px rgba(125,211,252,.25) }
+  .swatch.outer{ background:var(--accent2); box-shadow:0 0 12px rgba(192,132,252,.25) }
+
+  .hint{ color:var(--muted); font-size:12px; line-height:1.35 }
+  .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+  /* SVG text styles */
+  .label{ fill:#d7deea; font-weight:700; text-shadow: 0 1px 0 rgba(0,0,0,.5) }
+  .labelInner{ font-size:12px }
+  .labelOuter{ font-size:13px }
+  .seg{ fill: var(--ring); stroke: #232836; stroke-width:1; }
+  .seg.inner.active{ fill: #193141; stroke:#23526a }
+  .seg.outer.active{ fill: #2a1d39; stroke:#3a2750 }
+
+  /* Slider */
+  input[type="range"]{
+    width:100%;
+    appearance:none; height:6px; border-radius:999px; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:2px solid #000; box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:18px; height:18px; border:none; border-radius:50%; background:#fff;
+  }
+
+  .footer{ margin-top:16px; color:var(--muted); font-size:12px }
+  .gridline{ stroke:var(--grid); stroke-width:1 }
+</style>
+</head>
+<body>
+<div id="app" class="wrap">
+  <div class="head">
+    <h1 style="margin:0;font-size:22px;letter-spacing:.2px">Sexagesimal Wheel (12×5) — interactive</h1>
+    <label class="toggle">
+      <input type="checkbox" v-model="useDuodecimalGlyphs">
+      Use duodecimal glyphs (↊, ↋)
+    </label>
+  </div>
+
+  <div class="card controls">
+    <input type="range" min="0" max="59" v-model.number="n" />
+    <button class="btn" @click="dec">–1</button>
+    <button class="btn" @click="inc">+1</button>
+    <button class="btn" :class="{playing: playing}" @click="togglePlay">{{ playing ? 'Pause' : 'Auto-Play' }}</button>
+  </div>
+
+  <div class="readouts" style="margin-top:12px">
+    <div class="kv">
+      <div class="k">Decimal</div>
+      <div class="v mono">{{ n }}</div>
+    </div>
+    <div class="kv">
+      <div class="k">Mixed-radix (5×12)</div>
+      <div class="v mono">({{ outer }}, {{ innerDisplay }})</div>
+    </div>
+    <div class="kv">
+      <div class="k">Mapping</div>
+      <div class="v mono">{{ mappingText }}</div>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="card">
+      <!-- SVG Wheel -->
+      <svg :width="size" :height="size" :viewBox="`0 0 ${size} ${size}`" role="img" aria-label="Base-60 wheel">
+        <defs>
+          <!-- subtle center glow -->
+          <radialGradient id="glow" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#111722"/>
+            <stop offset="70%" stop-color="#0e1016"/>
+            <stop offset="100%" stop-color="#0b0d12"/>
+          </radialGradient>
+        </defs>
+
+        <!-- background + crosshair grid -->
+        <circle :cx="cx" :cy="cy" :r="radiusOuter+22" fill="url(#glow)" />
+        <line class="gridline" :x1="cx-220" :y1="cy" :x2="cx+220" :y2="cy"></line>
+        <line class="gridline" :x1="cx" :y1="cy-220" :x2="cx" :y2="cy+220"></line>
+
+        <!-- OUTER ring: 5 segments -->
+        <g v-for="k in 5" :key="'o'+k">
+          <path class="seg outer" :class="{active: (k-1)===outer }"
+                :d="donutArc(cx, cy, radiusOuter-30, radiusOuter, (k-1)*outerSweep, k*outerSweep)"></path>
+          <text class="label labelOuter" :x="labelPosOuter(k-1).x" :y="labelPosOuter(k-1).y" text-anchor="middle" dominant-baseline="middle">
+            {{ k-1 }}
+          </text>
+        </g>
+
+        <!-- INNER ring: 12 segments -->
+        <g v-for="j in 12" :key="'i'+j">
+          <path class="seg inner" :class="{active: (j-1)===inner }"
+                :d="donutArc(cx, cy, radiusInner, radiusInner+26, (j-1)*innerSweep, j*innerSweep)"></path>
+          <text class="label labelInner" :x="labelPosInner(j-1).x" :y="labelPosInner(j-1).y" text-anchor="middle" dominant-baseline="middle">
+            {{ digit12(j-1) }}
+          </text>
+        </g>
+
+        <!-- Center status -->
+        <circle :cx="cx" :cy="cy" r="58" fill="#0a0d12" stroke="#1e2430" stroke-width="1.2"/>
+        <text class="label" :x="cx" :y="cy-8" text-anchor="middle" style="font-size:12px; fill:var(--muted)">value</text>
+        <text class="label" :x="cx" :y="cy+16" text-anchor="middle" style="font-size:26px; font-weight:800">
+          {{ n }}
+        </text>
+      </svg>
+    </div>
+
+    <div class="card legend">
+      <div class="row"><span class="swatch inner"></span> Inner ring (12 states): duodecimal digit</div>
+      <div class="row"><span class="swatch outer"></span> Outer ring (5 states): base-5 digit</div>
+      <div class="row hint">
+        This is a mixed-radix counter: 60 = 5 × 12.  
+        For each step of the inner ring (0→↋), the outer ring stays. After inner wraps, the outer advances by 1.
+      </div>
+
+      <div class="kv">
+        <div class="k">Examples</div>
+        <div class="v mono" style="font-size:14px">
+          0 → (0, 0) &nbsp;•&nbsp; 11 → (0, {{ digit12(11) }})<br>
+          12 → (1, 0) &nbsp;•&nbsp; 47 → (3, {{ digit12(11) }})<br>
+          59 → (4, {{ digit12(11) }})
+        </div>
+      </div>
+
+      <div class="kv">
+        <div class="k">Why 12×5?</div>
+        <div class="v" style="font-size:14px; line-height:1.4; font-weight:600">
+          12 has divisors 2,3,4,6 → clean fractions. 5 keeps the outer wheel compact.  
+          Together they yield 60 states—the same structure behind minutes/seconds and degrees.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Tip: toggle duodecimal glyphs to see how <span class="mono">10, 11</span> become <span class="mono">↊, ↋</span>.  
+    The arc lengths are exact: inner 30° per segment (12 parts), outer 72° per segment (5 parts).
+  </div>
+</div>
+
+<!-- Vue 3 CDN -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, computed, onMounted, onBeforeUnmount, ref } = Vue;
+
+createApp({
+  setup(){
+    const n = ref(0);                 // 0..59
+    const useDuodecimalGlyphs = ref(true);
+    const playing = ref(false);
+    let timer = null;
+
+    // geometry
+    const size = 520;
+    const cx = size/2, cy = size/2;
+    const radiusOuter = 200;  // outer ring outer radius
+    const radiusInner = 140;  // inner ring inner radius
+    const innerSweep = 360/12;
+    const outerSweep = 360/5;
+
+    const outer = computed(()=> Math.floor(n.value/12)); // 0..4
+    const inner = computed(()=> n.value % 12);           // 0..11
+
+    const innerDisplay = computed(()=> digit12(inner.value));
+    const mappingText = computed(()=> {
+      return `${n.value} = ${outer.value}×12 + ${inner.value}  →  (${outer.value}, ${digit12(inner.value)})`;
+    });
+
+    function inc(){ n.value = (n.value+1)%60 }
+    function dec(){ n.value = (n.value+59)%60 }
+    function togglePlay(){
+      playing.value = !playing.value;
+      if(playing.value){
+        timer = setInterval(()=>{ n.value = (n.value+1)%60 }, 500);
+      }else{
+        clearInterval(timer); timer = null;
+      }
+    }
+    onBeforeUnmount(()=> timer && clearInterval(timer));
+
+    function rad(d){ return (Math.PI/180)*d }
+    function polar(cx, cy, r, deg){
+      const a = rad(deg-90); // rotate so 0° is at 12 o'clock
+      return { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
+    }
+
+    // Create a donut segment between [a1,a2] with inner/outer radii
+    function donutArc(cx, cy, rInner, rOuter, a1, a2){
+      const p0 = polar(cx, cy, rOuter, a1);
+      const p1 = polar(cx, cy, rOuter, a2);
+      const p2 = polar(cx, cy, rInner, a2);
+      const p3 = polar(cx, cy, rInner, a1);
+      const largeArc = (a2 - a1) <= 180 ? 0 : 1;
+      return [
+        `M ${p0.x} ${p0.y}`,
+        `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p1.x} ${p1.y}`,
+        `L ${p2.x} ${p2.y}`,
+        `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p3.x} ${p3.y}`,
+        'Z'
+      ].join(' ');
+    }
+
+    // Label positions (mid-angle)
+    function labelPosInner(idx){
+      const mid = idx*innerSweep + innerSweep/2;
+      return polar(cx, cy, radiusInner+13, mid);
+    }
+    function labelPosOuter(idx){
+      const mid = idx*outerSweep + outerSweep/2;
+      return polar(cx, cy, radiusOuter-15, mid);
+    }
+
+    function digit12(d){ // 0..11
+      if(!useDuodecimalGlyphs.value){
+        return d<10 ? String(d) : (d===10?'A':'B');
+      }
+      if(d<10) return String(d);
+      return d===10 ? '↊' : '↋';
+    }
+
+    // Keyboard shortcuts
+    function key(e){
+      if(e.key === 'ArrowRight') inc();
+      else if(e.key === 'ArrowLeft') dec();
+      else if(e.key.toLowerCase() === ' '){ e.preventDefault(); togglePlay(); }
+    }
+    onMounted(()=> window.addEventListener('keydown', key));
+    onBeforeUnmount(()=> window.removeEventListener('keydown', key));
+
+    return {
+      n, useDuodecimalGlyphs, playing,
+      size, cx, cy, radiusOuter, radiusInner, innerSweep, outerSweep,
+      outer, inner, innerDisplay, mappingText,
+      inc, dec, togglePlay,
+      donutArc, labelPosInner, labelPosOuter, digit12
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
