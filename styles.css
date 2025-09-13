@@ -1,0 +1,112 @@
+/* Base-60 Wheel Styles */
+:root{
+  --bg:#0e0f12;
+  --panel:#14161b;
+  --ink:#e8ecf1;
+  --muted:#aab6c6;
+  --accent:#7dd3fc;    /* inner active */
+  --accent2:#c084fc;   /* outer active */
+  --ring:#2a2f3a;
+  --grid:#1c212b;
+  --ok:#22c55e;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+  background: radial-gradient(1200px 800px at 70% -10%, #1a1f28 10%, var(--bg) 60%);
+  color:var(--ink);
+}
+
+.wrap{
+  max-width:1100px; margin:32px auto; padding:16px;
+}
+
+.head{
+  display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; margin-bottom:16px;
+}
+
+.card{
+  background:linear-gradient(180deg, var(--panel), #101218);
+  border:1px solid #1f2430; border-radius:16px; padding:16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.controls{
+  display:grid; grid-template-columns: 1fr auto auto auto; gap:12px; align-items:center;
+}
+
+.btn{
+  background:#1c2330; border:1px solid #2b3342; color:var(--ink);
+  padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+  transition:transform .04s ease, background .2s ease, border .2s ease;
+}
+
+.btn:hover{ background:#232b3a }
+.btn:active{ transform: translateY(1px) }
+.btn.playing{ border-color: var(--ok); box-shadow: 0 0 0 2px rgba(34,197,94,.15) inset }
+
+.toggle{
+  display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)
+}
+
+input[type="checkbox"]{ width:18px; height:18px; accent-color: var(--accent) }
+
+.readouts{
+  display:grid; gap:8px; grid-template-columns: repeat(3, minmax(0,1fr));
+}
+
+.kv{
+  background:#0f1218; border:1px solid #1f2430; border-radius:12px; padding:12px 14px;
+}
+
+.kv .k{color:var(--muted); font-size:13px; letter-spacing:.3px; text-transform:uppercase}
+.kv .v{font-size:22px; font-weight:700; margin-top:2px}
+
+/* SVG board */
+.board{
+  margin-top:16px; display:grid; grid-template-columns: 1.2fr .8fr; gap:16px;
+}
+
+.legend{
+  display:grid; gap:10px;
+}
+
+.legend .row{
+  display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted)
+}
+
+.swatch{ width:14px; height:14px; border-radius:3px; background:var(--ring); border:1px solid #2b3342 }
+.swatch.inner{ background:var(--accent); box-shadow:0 0 12px rgba(125,211,252,.25) }
+.swatch.outer{ background:var(--accent2); box-shadow:0 0 12px rgba(192,132,252,.25) }
+
+.hint{ color:var(--muted); font-size:12px; line-height:1.35 }
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+/* SVG text styles */
+.label{ fill:#d7deea; font-weight:700; text-shadow: 0 1px 0 rgba(0,0,0,.5) }
+.labelInner{ font-size:12px }
+.labelOuter{ font-size:13px }
+.seg{ fill: var(--ring); stroke: #232836; stroke-width:1; }
+.seg.inner.active{ fill: #193141; stroke:#23526a }
+.seg.outer.active{ fill: #2a1d39; stroke:#3a2750 }
+
+/* Slider */
+input[type="range"]{
+  width:100%;
+  appearance:none; height:6px; border-radius:999px; background: linear-gradient(90deg, var(--accent), var(--accent2));
+  outline:none;
+}
+
+input[type="range"]::-webkit-slider-thumb{
+  appearance:none; width:18px; height:18px; border-radius:50%;
+  background:#fff; border:2px solid #000; box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+
+input[type="range"]::-moz-range-thumb{
+  width:18px; height:18px; border:none; border-radius:50%; background:#fff;
+}
+
+.footer{ margin-top:16px; color:var(--muted); font-size:12px }
+.gridline{ stroke:var(--grid); stroke-width:1 }
